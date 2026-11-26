@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kasse">
+  <meta name="theme-color" content="#1c69d4">
+  <title>FW Kassentool</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    /* Bestellbereich (2/3) */
+    #order {
+      flex: 2;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      padding: var(--gap) var(--pad);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #order h2 { margin: 0 0 var(--gap); font-size: var(--fs-lg); }
+    .top {
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: var(--gap);
+      margin-bottom: var(--gap);
+    }
+    #newOrder {
+      flex: 1;
+      font-size: var(--fs-base);
+      min-height: var(--btn);
+      padding: 8px;
+      border: 0;
+      border-radius: 12px;
+      background: #c0392b;
+      color: #fff;
+    }
+    #calcLink {
+      flex: 1;
+      font-size: var(--fs-base);
+      min-height: var(--btn);
+      padding: 8px;
+      border-radius: 12px;
+      background: #1c69d4;
+      color: #fff;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #settingsBtn {
+      flex: 0 0 auto;
+      width: var(--btn);
+      min-height: var(--btn);
+      font-size: var(--fs-lg);
+      border: 0;
+      border-radius: 12px;
+      background: #555;
+      color: #fff;
+      padding: 0;
+    }
+    #newOrder:active, #calcLink:active, #settingsBtn:active { opacity: .6; }
+
+    /* Spaltenköpfe */
+    .head { display: flex; gap: var(--gap); padding: 0 var(--pad); margin-bottom: 4px; }
+    .head .sp { flex: 1; }
+    .head .pr {
+      width: calc(var(--btn) * 3.6); text-align: left;
+      font-size: var(--fs-sm); color: #ccc; font-weight: bold;
+    }
+    .head .pf {
+      width: calc(var(--btn-sm) * 4.2 + var(--gap)); padding-left: var(--gap);
+      font-size: var(--fs-sm); color: #f0b24a; font-weight: bold;
+    }
+
+    .item {
+      display: flex;
+      align-items: center;
+      gap: var(--gap);
+      background: #3a3f44;
+      border-radius: 14px;
+      padding: calc(var(--gap) * .7) var(--pad);
+      margin-bottom: var(--gap);
+      box-shadow: 0 1px 3px rgba(0,0,0,.4);
+    }
+    .item .name { font-size: var(--fs-lg); flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .sep { height: 1px; background: #555; margin: var(--gap) 8px; }
+    .ctrl { display: flex; align-items: center; gap: calc(var(--gap) * .7); }
+    .ctrl button {
+      width: var(--btn); height: var(--btn);
+      font-size: var(--fs-xl);
+      line-height: 1;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: #1c69d4;
+      color: #fff;
+    }
+    .ctrl button.minus { background: #888; }
+    .ctrl button:active { opacity: .6; }
+    .qty { min-width: 1.6em; text-align: center; font-size: var(--fs-lg); font-weight: bold; }
+    .price { font-size: var(--fs-sm); color: #ccc; white-space: nowrap; min-width: 3.2em; text-align: right; }
+
+    /* Pfand (rechts an der Artikelzeile) */
+    .pfand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: calc(var(--btn-sm) * 4.2 + var(--gap));
+      padding-left: var(--gap);
+      border-left: 2px solid #555;
+    }
+    .pfand .ctrl { gap: 6px; }
+    .pfand button { width: var(--btn-sm); height: var(--btn-sm); font-size: var(--fs-lg); background: #d98c1f; }
+    .pfand button.minus { background: #8a6a3a; }
+    .pfand .qty { min-width: 1.4em; font-size: var(--fs-base); color: #f0b24a; }
+    .pfand .price { color: #f0b24a; }
+    .pfand.none { visibility: hidden; }
+
+    /* Hinweis Hochformat */
+    #rotate {
+      display: none; position: fixed; inset: 0; z-index: 100;
+      background: #2b2f33; color: #fff;
+      align-items: center; justify-content: center;
+      text-align: center; font-size: var(--fs-xl); padding: 24px;
+    }
+    @media (orientation: portrait) {
+      #rotate { display: flex; }
+    }
+
+    /* Schmale Displays (Handy quer): Bestellbereich breiter */
+    @media (max-width: 800px) {
+      #order { flex: 3; }
+      #receipt { flex: 2; }
+    }
+  </style>
+</head>
+<body>
+  <div id="rotate">Bitte das Gerät quer halten ↻</div>
+  <section id="order">
+    <div class="top">
+      <button id="settingsBtn" type="button" title="Einstellungen" aria-label="Einstellungen">⚙️</button>
+      <button id="newOrder">Neue Bestellung</button>
+      <a id="calcLink" href="rechenhilfe.html">Rechenhilfe</a>
+    </div>
+    <h2>Bestellung</h2>
+    <div class="head"><div class="sp"></div><div class="pr">Preis</div><div class="pf">Pfand</div></div>
+    <div id="items"></div>
+  </section>
+
+  <aside id="receipt">
+    <h2>ZUSAMMENFASSUNG</h2>
+    <div id="lines"></div>
+    <div class="sub" id="subOrder"></div>
+    <div id="pfandBox"></div>
+    <div class="sub" id="subPfand"></div>
+    <div id="total"><span>SUMME</span><span id="sum">0,00 €</span></div>
+  </aside>
+
+  <script src="./articles.js"></script>
+  <script src="./store.js"></script>
+  <script src="./shared.js"></script>
+  <script>
+    document.getElementById('settingsBtn').addEventListener('click', FWStore.openAdmin);
+
+    const qty = loadArr('fwQty');   // Artikelanzahl
+    const dep = loadArr('fwDep');   // Pfandanzahl
+
+    const itemsEl = document.getElementById('items');
+    const qtyEls = [];
+    const depEls = [];
+
+    // Artikelzeilen aufbauen
+    articles.forEach((a, i) => {
+      if (a.separator) {
+        const sep = document.createElement('div');
+        sep.className = 'sep';
+        itemsEl.appendChild(sep);
+        return;
+      }
+      const hasPfand = (a.pfand || 0) > 0;
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.innerHTML = `
+        <div class="name"></div>
+        <div class="ctrl">
+          <div class="price"></div>
+          <button class="minus" data-i="${i}" data-t="q" data-d="-1">−</button>
+          <div class="qty">0</div>
+          <button data-i="${i}" data-t="q" data-d="1">+</button>
+        </div>
+        <div class="pfand ${hasPfand ? '' : 'none'}">
+          <div class="ctrl">
+            <div class="price"></div>
+            <button class="minus" data-i="${i}" data-t="p" data-d="-1">−</button>
+            <div class="qty">0</div>
+            <button data-i="${i}" data-t="p" data-d="1">+</button>
+          </div>
+        </div>`;
+      row.querySelector('.name').textContent = a.name;
+      row.querySelector('.ctrl .price').textContent = fmtP(a.price);
+      qtyEls[i] = row.querySelector('.ctrl .qty');
+      if (hasPfand) {
+        row.querySelector('.pfand .price').textContent = fmtP(a.pfand);
+        depEls[i] = row.querySelector('.pfand .qty');
+      }
+      itemsEl.appendChild(row);
+    });
+
+    itemsEl.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      const i = +b.dataset.i;
+      const d = +b.dataset.d;
+      const hasPfand = (articles[i].pfand || 0) > 0;
+      if (b.dataset.t === 'q') {
+        const old = qty[i];
+        qty[i] = Math.max(0, old + d);
+        // Pfand läuft automatisch mit, solange die Artikelmenge sich ändert
+        if (hasPfand && qty[i] !== old) dep[i] = Math.max(0, dep[i] + d);
+      } else if (hasPfand) {
+        dep[i] = Math.max(0, dep[i] + d);
+      }
+      render();
+    });
+
+    function render() {
+      articles.forEach((a, i) => {
+        if (a.separator) return;
+        qtyEls[i].textContent = qty[i];
+        if (depEls[i]) depEls[i].textContent = dep[i];
+      });
+      renderSummary(qty, dep);
+      saveArr('fwQty', qty);
+      saveArr('fwDep', dep);
+    }
+    render();
+
+    // Neue Bestellung: alles auf 0
+    document.getElementById('newOrder').addEventListener('click', () => {
+      qty.fill(0);
+      dep.fill(0);
+      render();
+    });
+
+    lockGestures('#order, #lines');
+    keepAwake();
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
